@@ -154,13 +154,19 @@ export async function main() {
   let date
   const di = args.indexOf('--date')
   if (di !== -1) date = args[di + 1]
-  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  if (di !== -1 && (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))) {
     console.error('日期格式应为 YYYY-MM-DD')
     process.exit(2)
   }
   // --date 字符串必须先规范化为 Date（本地正午）再流入日期函数；裸 'YYYY-MM-DD'
   // 字符串传给 nowIso 会被静默忽略并返回真实时钟
   const now = date ? new Date(date + 'T12:00:00') : new Date()
+  // 日历上不存在的日期：V8 对 2026-13-01 返回 Invalid Date，对 2026-02-30 静默滚动为
+  // 2026-03-02 —— round-trip 校验两种都拦（判定锚点必须与所给日期一致），杜绝 NaN 日期流入
+  if (date && (isNaN(now.getTime()) || today(now) !== date)) {
+    console.error('日期格式应为 YYYY-MM-DD')
+    process.exit(2)
+  }
   const dir = process.env.WORKLOG_DIR || path.join(process.env.USERPROFILE || process.env.HOME || '', '.worklog')
   await runDailyMain({ worklogDir: dir, date, dryRun, now })
 }

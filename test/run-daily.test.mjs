@@ -1,9 +1,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { decideTodo, runDailyMain } from '../bin/run-daily.mjs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
+const BIN = fileURLToPath(new URL('../bin/run-daily.mjs', import.meta.url))
+function runCli(args, dir) {
+  return spawnSync(process.execPath, [BIN, ...args], {
+    env: { ...process.env, WORKLOG_DIR: dir }, encoding: 'utf8',
+  })
+}
 
 const NOW = new Date(2026, 9, 16, 18, 0)
 function fixture() {
@@ -54,4 +63,18 @@ test('dry-run 不写报告', async () => {
   const { dir } = fixture()
   await runDailyMain({ worklogDir: dir, date: '2026-10-16', dryRun: true, now: NOW, deps: { generateReport: async () => ({ report: '# x', generatorType: 'api' }) } })
   assert.ok(!fs.existsSync(path.join(dir, 'reports', '2026-10-16.md')))
+})
+test('非法日历日期 exit 2 且不产生 NaN 文件', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  for (const bad of ['2026-13-01', '2026-02-30']) {
+    const r = runCli(['--date', bad], dir)
+    assert.equal(r.status, 2, '日历非法日期应 exit 2: ' + bad)
+  }
+  assert.equal(fs.readdirSync(dir).length, 0)
+})
+test('--date 缺值 exit 2', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  const r = runCli(['--date'], dir)
+  assert.equal(r.status, 2)
+  assert.equal(fs.readdirSync(dir).length, 0)
 })
