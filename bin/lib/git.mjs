@@ -9,7 +9,8 @@ import { today } from './date.mjs'
 function git(repo, ...args) {
   try {
     // stderr 丢弃：非仓库目录等常见情况 git 会向 stderr 打 fatal，不该污染日报输出
-    return String(execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).trim()
+    // timeout 兜底：Windows 上凭据助手等 GUI 可能挂起 git，定时任务不能无限等（参考实现 20s）
+    return String(execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 20000 })).trim()
   } catch {
     return ''
   }

@@ -1,4 +1,5 @@
 // 文件变更扫描：watchDirs 下当天 mtime 的文件，按一级子目录聚合。
+// 排除点目录/点文件（含 .git）与 ignore 模式，与参考实现一致。
 // 读取失败一律跳过（权限、目录消失等），扫描永不抛异常。
 
 import fs from 'node:fs'
@@ -25,11 +26,11 @@ export function scanDayChanges(watchDirs, day, maxPerDir, ignore, now) {
     for (const e of entries) {
       const full = path.join(dir, e.name)
       if (e.isDirectory()) {
-        if (e.name === '.git' || matches(e.name)) continue
+        if (e.name.startsWith('.') || matches(e.name)) continue
         // 一级子目录成为新的聚合键；更深层文件仍归该目录
         walk(full, isRoot ? full : group, false)
       } else {
-        if (matches(e.name)) continue
+        if (e.name.startsWith('.') || matches(e.name)) continue
         let m
         try { m = fs.statSync(full).mtimeMs } catch { continue }
         if (mtimeDay(m) !== day || m > cutoff) continue
