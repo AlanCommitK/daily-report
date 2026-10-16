@@ -18,7 +18,7 @@
 
 | 用户类型 | 采集 | 生成 | 安装 |
 |---|---|---|---|
-| Claude Code 用户（信息最全） | Claude Code 流水 hook | 自填 LLM API（或 claude CLI） | `/plugin marketplace add <owner>/daily-report` → `/plugin install daily-report@<owner>/daily-report` → `node bin/setup.mjs` |
+| Claude Code 用户（信息最全） | Claude Code 流水 hook | 自填 LLM API（或 claude CLI） | `/plugin marketplace add <owner>/daily-report` → `/plugin install daily-report@daily-report-marketplace` → `node bin/setup.mjs` |
 | 无 Claude Code 的普通用户 | git / 文件变更 / 手记 | 自填 LLM API | `git clone` + `node bin/setup.mjs` |
 | 其他 agent 用户 | 未来写适配器接入 | 自填 LLM API | `git clone` + setup |
 | 已有 claude CLI 的老用户 | Claude Code 流水 hook | claude CLI（保留兼容） | 同第一行 |
@@ -29,7 +29,7 @@
 
    ```
    /plugin marketplace add <owner>/daily-report
-   /plugin install daily-report@<owner>/daily-report
+   /plugin install daily-report@daily-report-marketplace
    ```
 
 2. 从仓库的本地副本跑一次安装向导：
@@ -102,7 +102,7 @@ setup 会询问是否把采集 hooks 写入 `~/.claude/settings.json`（写入�
 ]
 ```
 
-超长日报按 4096 字节（企业微信/飞书单条上限）在空行边界切分，每条消息都是完整段落/列表/代码块。某渠道失败不影响其余，日报永远先落本地 `reports/`。
+超长日报统一按 4096 字节在空行边界切分，每条消息都是完整段落/列表/代码块（4096 是企业微信 markdown 消息上限；飞书官方 webhook 上限更高，本工具同样按 4096 保守分片）。某渠道失败不影响其余，日报永远先落本地 `reports/`。
 
 ## 命令行
 

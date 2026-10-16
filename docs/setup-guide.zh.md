@@ -92,7 +92,7 @@ API key 环境变量名（密钥只从环境变量读取） [DAILY_REPORT_API_KE
 
 ## 常见问题
 
-- **schtasks 创建失败**：向导会打印完整命令，复制到手動执行，或到管理员终端执行。
+- **schtasks 创建失败**：向导会打印完整命令，复制到手动执行，或到管理员终端执行。
 - **crontab 写入失败**：同样会打印 crontab 行，用 `crontab -e` 手动追加。
 - **改主意想换生成器 / 渠道**：重跑 `node bin/setup.mjs` 覆盖 config.json 即可（hooks 注册是幂等的，不会重复）。
 - **CC Switch 用户**：克隆路径注册的 hooks 写在 `~/.claude/settings.json`，CC Switch 切换供应商重写该文件可能抹掉 hooks；插件路径无此问题（见 README 常见问题）。

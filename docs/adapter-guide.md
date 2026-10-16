@@ -77,18 +77,20 @@ import { nowIso, today } from '../lib/date.mjs'
 import { redact } from '../lib/redact.mjs'
 
 async function handle(d, env) {
-  if (env.WORKLOG_SKIP === '1') return
-  const now = new Date()
-  const dir = env.WORKLOG_DIR || path.join(env.USERPROFILE || env.HOME, '.worklog')
-  const rec = {
-    ts: nowIso(now),
-    kind: 'prompt', // prompt | file | reply，按事件映射
-    cwd: d.cwd ?? '',
-    session: String(d.session_id ?? '').slice(0, 8),
-    turn: String(d.turn_id ?? '').slice(0, 8),
-    text: redact(String(d.text ?? '')).slice(0, 1200),
-  }
-  appendLine(dir, today(now), rec)
+  try {
+    if (env.WORKLOG_SKIP === '1') return
+    const now = new Date()
+    const dir = env.WORKLOG_DIR || path.join(env.USERPROFILE || env.HOME || '', '.worklog')
+    const rec = {
+      ts: nowIso(now),
+      kind: 'prompt', // prompt | file | reply，按事件映射
+      cwd: d.cwd ?? '',
+      session: String(d.session_id ?? '').slice(0, 8),
+      turn: String(d.turn_id ?? '').slice(0, 8),
+      text: redact(String(d.text ?? '')).slice(0, 1200),
+    }
+    appendLine(dir, today(now), rec)
+  } catch { /* 绝不失败：吞异常、退出码 0，不影响宿主 agent */ }
 }
 ```
 

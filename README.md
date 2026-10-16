@@ -18,7 +18,7 @@ The core pipeline (collect → generate → deliver → schedule) does not depen
 
 | User | Capture | Generation | Install |
 |---|---|---|---|
-| Claude Code user (richest material) | Claude Code hooks | your own LLM API (or Claude CLI) | `/plugin marketplace add <owner>/daily-report` → `/plugin install daily-report@<owner>/daily-report` → `node bin/setup.mjs` |
+| Claude Code user (richest material) | Claude Code hooks | your own LLM API (or Claude CLI) | `/plugin marketplace add <owner>/daily-report` → `/plugin install daily-report@daily-report-marketplace` → `node bin/setup.mjs` |
 | No Claude Code | git / file changes / manual notes | your own LLM API | `git clone` + `node bin/setup.mjs` |
 | Other-agent user | future capture adapter | your own LLM API | `git clone` + setup |
 | Existing Claude CLI user | Claude Code hooks | Claude CLI | same as first row |
@@ -29,7 +29,7 @@ The core pipeline (collect → generate → deliver → schedule) does not depen
 
    ```
    /plugin marketplace add <owner>/daily-report
-   /plugin install daily-report@<owner>/daily-report
+   /plugin install daily-report@daily-report-marketplace
    ```
 
 2. Run the setup wizard once, from a local copy of the repository:
@@ -102,7 +102,7 @@ Two built-in generators; setup picks a default based on your environment (recomm
 ]
 ```
 
-Long reports are chunked at 4096 bytes (the WeCom/Feishu message limit) on blank-line boundaries, so every message ends on a complete paragraph/list/code block. A failing channel never blocks the others, and the report is always saved locally under `reports/`.
+Long reports are chunked at 4096 bytes on blank-line boundaries, so every message ends on a complete paragraph/list/code block. (4096 is the WeCom markdown message limit; Feishu's official webhook limit is higher, and this tool conservatively chunks there too.) A failing channel never blocks the others, and the report is always saved locally under `reports/`.
 
 ## CLI
 
