@@ -39,7 +39,8 @@ function hasCommand(list, cmd) {
 }
 
 // 注册采集 hooks：hookCmds = { UserPromptSubmit: cmd, Stop: cmd, PostToolUse: cmd }。
-// 返回写回后的 settings 对象。
+// 返回 { settings, changed }：changed=false 表示同命令已存在（无备份、未写盘），
+// 供调用方（setup）按实际是否写盘决定文案，不再无凭声称"已备份"。
 export function registerHooks(p, hookCmds, now) {
   const settings = loadSettings(p)
   const hooks = settings.hooks && typeof settings.hooks === 'object' ? settings.hooks : {}
@@ -59,7 +60,7 @@ export function registerHooks(p, hookCmds, now) {
     settings.hooks = hooks
     write(p, settings)
   }
-  return settings
+  return { settings, changed }
 }
 
 // 移除三事件中含 daily-report 路径的条目（本机迁移：改由插件提供后清理手工 hook）。

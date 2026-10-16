@@ -76,6 +76,18 @@ test('WORKLOG_REDACT=0 时跳过脱敏（与 capture.ps1 的 -ne "0" 一致）',
   assert.equal(ls[0].text, secret)
 })
 
+test('WORKLOG_MAX_PROMPT/REPLY 非数字回退默认 1200/2000 截断（不产出 NaN 垃圾行）', () => {
+  const { dir, opts } = setup()
+  opts.env.WORKLOG_MAX_PROMPT = 'abc'
+  opts.env.WORKLOG_MAX_REPLY = 'abc'
+  handlePayload({ hook_event_name: 'UserPromptSubmit', prompt: 'x'.repeat(1500), prompt_id: 'p6', session_id: 's1', cwd: 'C:/work' }, opts)
+  handlePayload({ hook_event_name: 'Stop', last_assistant_message: 'y'.repeat(2500), prompt_id: 'p6', session_id: 's1', cwd: 'C:/work' }, opts)
+  const ls = lines(dir)
+  assert.equal(ls.length, 2)
+  assert.equal(ls[0].text, 'x'.repeat(1200) + '…[截断]', 'prompt 按默认 1200 截断')
+  assert.equal(ls[1].text, 'y'.repeat(2000) + '…[截断]', 'reply 按默认 2000 截断')
+})
+
 test('异常载荷不抛出（绝不失败）', () => {
   const { dir, opts } = setup()
   handlePayload({ hook_event_name: 'UnknownEvent' }, opts)
@@ -86,7 +98,7 @@ test('异常载荷不抛出（绝不失败）', () => {
 test('CLI 入口：stdin 载荷落盘，stdout 绝对静默，退出码 0', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
   const payload = JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'e2e 你好', prompt_id: 'cli1', session_id: 's1', cwd: 'C:/work' })
-  const r = spawnSync(process.execPath, [MOD], { input: payload, env: { ...process.env, WORKLOG_DIR: dir }, encoding: 'utf8', timeout: 30000 })
+  const r = runCli(payload, dir)
   assert.equal(r.status, 0)
   assert.equal(r.stdout, '', '不得向 stdout 写任何东西')
   const day = today(new Date())
@@ -99,11 +111,18 @@ test('CLI 入口：stdin 载荷落盘，stdout 绝对静默，退出码 0', () =
 
 test('CLI 入口：损坏 JSON 或空 stdin 不失败，退出码 0', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
-  const env = { ...process.env, WORKLOG_DIR: dir }
   for (const input of ['not-json{', '']) {
-    const r = spawnSync(process.execPath, [MOD], { input, env, encoding: 'utf8', timeout: 30000 })
+    const r = runCli(input, dir)
     assert.equal(r.status, 0)
     assert.equal(r.stdout, '')
   }
   fs.rmSync(dir, { recursive: true, force: true })
 })
+
+// 宿主机可能预置 WORKLOG_* 环境变量（会劫持数据目录），spawn 前剔除（与 add.test.mjs 同法）
+function runCli(input, dir) {
+  const env = { ...process.env }
+  for (const k of Object.keys(env)) if (k.startsWith('WORKLOG_')) delete env[k]
+  env.WORKLOG_DIR = dir
+  return spawnSync(process.execPath, [MOD], { input, env, encoding: 'utf8', timeout: 30000 })
+}

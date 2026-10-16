@@ -20,11 +20,12 @@ export function buildSchTasks(name, scriptPath, time, weekdays, now = new Date()
 }
 
 // crontab：连续星期压成区间（[1,2,3,4,5] → '1-5'）；周日 7 → 0。空数组 → 每天（*）。
+// scriptPath 加引号（与 schtasks 的 command 一致）：路径含空格时 cron 行不静默失效。
 export function buildCronLine(scriptPath, time, weekdays) {
   const days = normalizeWeekdays(weekdays).map((d) => (d === 7 ? 0 : d))
   const dow = compressRanges(days) || '*'
   const [h, m] = String(time).split(':')
-  return Number(m) + ' ' + Number(h) + ' * * ' + dow + ' node ' + scriptPath
+  return Number(m) + ' ' + Number(h) + ' * * ' + dow + ' node "' + scriptPath + '"'
 }
 
 function compressRanges(sortedNums) {

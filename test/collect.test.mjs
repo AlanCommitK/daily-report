@@ -3,10 +3,20 @@ import assert from 'node:assert/strict'
 import { buildMaterial, renderMaterial } from '../bin/collect.mjs'
 import { appendLine } from '../bin/lib/jsonl.mjs'
 import { appendNote } from '../bin/lib/notes.mjs'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
+const BIN = fileURLToPath(new URL('../bin/collect.mjs', import.meta.url))
+// 宿主机可能预置 WORKLOG_* 环境变量，spawn 前剔除（与 add.test.mjs 同法）
+function runCli(args, dir) {
+  const env = { ...process.env }
+  for (const k of Object.keys(env)) if (k.startsWith('WORKLOG_')) delete env[k]
+  env.WORKLOG_DIR = dir
+  return spawnSync(process.execPath, [BIN, ...args], { env, encoding: 'utf8', timeout: 30000 })
+}
 
 function fixtureWithAllSources() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
@@ -46,4 +56,15 @@ test('空素材日各标记为 false', () => {
   const m = buildMaterial('2026-10-01', { worklogDir: dir, watchDirs: [], maxFilesPerDir: 40, ignore: [], now: new Date(2026, 9, 16, 18, 0) })
   assert.ok(!m.meta.hasLog && !m.meta.hasNote && !m.meta.hasFiles)
   assert.equal(m.sections.length, 0)
+})
+
+test('CLI 非法日历日期 exit 2（round-trip 校验）', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  for (const bad of ['2026-02-30', '2026-99-99']) {
+    const r = runCli([bad], dir)
+    assert.equal(r.status, 2, '日历非法日期应 exit 2: ' + bad)
+    assert.match(r.stderr, /YYYY-MM-DD/)
+  }
+  assert.equal(fs.readdirSync(dir).length, 0)
+  fs.rmSync(dir, { recursive: true, force: true })
 })

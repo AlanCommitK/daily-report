@@ -15,14 +15,18 @@ export async function chat(cfg, system, user, opts = {}) {
   if (!key) throw new Error(`环境变量 ${cfg.api_key_env} 未设置`)
   const fetchImpl = opts.fetchImpl || globalThis.fetch
   const base = String(cfg.base_url).replace(/\/+$/, '')
+  // 网络黑洞防护：每次尝试独立 30s 超时（opts.timeoutMs 可注入），超时抛错进入重试
+  const timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 30000
   let lastErr
   for (let attempt = 0; attempt < 3; attempt++) {
+    const signal = AbortSignal.timeout(timeoutMs)
     try {
       if (cfg.protocol === 'anthropic') {
         const res = await fetchImpl(base + '/v1/messages', {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({ model: cfg.model, max_tokens: 4096, system, messages: [{ role: 'user', content: user }] }),
+          signal,
         })
         if (!res.ok) throw new Error('HTTP ' + res.status)
         const j = await res.json()
@@ -32,6 +36,7 @@ export async function chat(cfg, system, user, opts = {}) {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
         body: JSON.stringify({ model: cfg.model, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+        signal,
       })
       if (!res.ok) throw new Error('HTTP ' + res.status)
       const j = await res.json()

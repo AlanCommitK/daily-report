@@ -20,7 +20,7 @@
 - 密钥只从环境变量读（`api_key_env`/`password_env`），config 无明文密钥
 - 提交信息用中文（与仓库内其他项目一致），每个任务末 commit；**不 push**（用户要求时再 push）
 - 测试命令一律无参 `node --test`（带 `test/` 目录参数在 Node ≥22 下失败，已实测）；`test/fixtures/` 下不放 .js 文件（无参模式会把它们当测试执行）
-- 本计划在 `C:\Users\Yml888\WorkD\daily-report\`（即仓库根）下执行；参考实现源码在 `C:\Users\Yml888\.claude\skills\daily-report\`（capture.ps1 / run-daily.py / collect.py / deliver.py），行为以 spec 为准、细节对齐参考实现
+- 本计划在 `C:\Users\<用户名>\WorkD\daily-report\`（即仓库根）下执行；参考实现源码在 `C:\Users\<用户名>\.claude\skills\daily-report\`（capture.ps1 / run-daily.py / collect.py / deliver.py），行为以 spec 为准、细节对齐参考实现
 
 ---
 
@@ -35,7 +35,7 @@
 - [ ] **Step 1: 初始化仓库**
 
 ```bash
-cd /c/Users/Yml888/WorkD/daily-report
+cd /c/Users/<用户名>/WorkD/daily-report
 git init -b main
 ```
 

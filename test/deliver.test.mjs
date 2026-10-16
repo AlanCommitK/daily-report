@@ -9,9 +9,13 @@ import { send as smtpSend } from '../channels/smtp.mjs'
 import { deliver } from '../bin/deliver.mjs'
 import http from 'node:http'
 import { once } from 'node:events'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
+const DELIVER_BIN = fileURLToPath(new URL('../bin/deliver.mjs', import.meta.url))
 
 async function hookServer(onBody) {
   const seen = []
@@ -22,12 +26,27 @@ async function hookServer(onBody) {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
       seen.push(body)
       onBody(body)
-      res.end('{"errcode":0}')
+      res.end('{"errcode":0,"code":0}')
     })
   })
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   return { server, url: 'http://127.0.0.1:' + server.address().port + '/hook', seen }
+}
+
+// 收到请求但延迟响应（超出注入的短超时）：客户端应先超时中止；
+// 定时器 unref，不拖住事件循环。源实现未加超时时该测试快速失败而非挂起。
+async function delayServer(delayMs) {
+  const server = http.createServer((req, res) => {
+    req.resume()
+    const t = setTimeout(() => {
+      try { if (!res.destroyed) res.end('{"errcode":0,"code":0}') } catch { /* 客户端已中止 */ }
+    }, delayMs)
+    t.unref()
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  return { server, url: 'http://127.0.0.1:' + server.address().port + '/h' }
 }
 
 test('copy 复制文件', async () => {
@@ -118,4 +137,68 @@ test('smtp curl 非零退出抛 stderr', async () => {
     smtpSend({ type: 'smtp', host: 'h', user: 'u', password_env: 'P', to: ['a@b'], from: 'f' }, 'x', { spawn: () => ({ status: 1, stderr: 'auth failed' }) }),
     /auth failed/
   )
+})
+
+test('feishu HTTP 200 但 body code 非 0 抛错（签名失败 19021）', async () => {
+  const server = http.createServer((req, res) => { req.resume(); req.on('end', () => res.end('{"code":19021,"msg":"sign match fail or timestamp is not within one hour from current time"}')) })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  const url = 'http://127.0.0.1:' + server.address().port + '/h'
+  try {
+    await assert.rejects(feishuSend({ type: 'feishu', url }, 'x', {}), /19021/)
+  } finally {
+    server.close()
+  }
+})
+
+test('wecom 请求超时抛错（opts.timeoutMs 注入短超时）', async () => {
+  const { server, url } = await delayServer(500)
+  try {
+    await assert.rejects(wecomSend({ type: 'wecom', url }, 'x', { timeoutMs: 100 }))
+  } finally {
+    server.close()
+  }
+})
+
+test('feishu 请求超时抛错（opts.timeoutMs 注入短超时）', async () => {
+  const { server, url } = await delayServer(500)
+  try {
+    await assert.rejects(feishuSend({ type: 'feishu', url }, 'x', { timeoutMs: 100 }))
+  } finally {
+    server.close()
+  }
+})
+
+// —— deliver CLI 退出码 ——
+function deliverCli(dir) {
+  const env = { ...process.env }
+  for (const k of Object.keys(env)) if (k.startsWith('WORKLOG_')) delete env[k]
+  env.WORKLOG_DIR = dir
+  const report = path.join(dir, 'r.md')
+  fs.writeFileSync(report, '# x')
+  const r = spawnSync(process.execPath, [DELIVER_BIN, report], { env, encoding: 'utf8', timeout: 30000 })
+  return r
+}
+function writeCfg(dir, deliver) {
+  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({
+    watch_dirs: [], generator: { type: 'api', protocol: 'openai', base_url: 'http://127.0.0.1:1', api_key_env: 'K', model: 'm' }, claude_args: [], deliver,
+  }))
+}
+
+test('deliver CLI 全部渠道失败 exit 1', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  writeCfg(d, [{ type: 'wecom', url: 'http://127.0.0.1:1/h' }])
+  const r = deliverCli(d)
+  assert.equal(r.status, 1, '全部渠道失败应 exit 1：' + r.stderr)
+  assert.match(r.stderr, /投递失败/)
+  fs.rmSync(d, { recursive: true, force: true })
+})
+
+test('deliver CLI 至少一个渠道成功 exit 0', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  writeCfg(d, [{ type: 'copy', to: path.join(d, 'out') }])
+  const r = deliverCli(d)
+  assert.equal(r.status, 0, r.stderr)
+  assert.ok(fs.existsSync(path.join(d, 'out', 'r.md')))
+  fs.rmSync(d, { recursive: true, force: true })
 })

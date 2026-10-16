@@ -1,6 +1,6 @@
 {
   "name": "daily-report",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "自动采集 Claude Code 工作流水，每天生成中文工作日报并投递到本地、邮件、企业微信或飞书。",
   "author": { "name": "daily-report contributors" },
   "license": "MIT",

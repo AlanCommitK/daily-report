@@ -2,11 +2,22 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import { once } from 'node:events'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { chat, PROVIDERS } from '../bin/lib/llm.mjs'
 import { generateReport } from '../bin/generate.mjs'
+
+const GEN_BIN = fileURLToPath(new URL('../bin/generate.mjs', import.meta.url))
+// 宿主机可能预置 WORKLOG_* 环境变量，spawn 前剔除（与 add.test.mjs 同法）
+function runCli(args, dir) {
+  const env = { ...process.env }
+  for (const k of Object.keys(env)) if (k.startsWith('WORKLOG_')) delete env[k]
+  env.WORKLOG_DIR = dir
+  return spawnSync(process.execPath, [GEN_BIN, ...args], { env, encoding: 'utf8', timeout: 30000 })
+}
 
 async function mockServer(handler) {
   const seen = []
@@ -17,9 +28,11 @@ async function mockServer(handler) {
       const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : null
       seen.push({ url: req.url, headers: req.headers, body })
       const r = await handler(req, body)
-      if (r.status) { res.statusCode = r.status; res.end(r.body || 'err'); return }
-      res.setHeader('content-type', 'application/json')
-      res.end(JSON.stringify(r))
+      try {
+        if (r.status) { res.statusCode = r.status; res.end(r.body || 'err'); return }
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify(r))
+      } catch { /* 客户端已中止（如超时测试） */ }
     })
   })
   server.listen(0, '127.0.0.1')
@@ -92,4 +105,38 @@ test('claude-cli 未落盘时退回 stdout', async () => {
   const r = await generateReport('2026-10-16', { config: cfg, worklogDir: dir, spawnImpl: () => 'stdout 回报语' })
   assert.equal(r.generatorType, 'claude-cli')
   assert.equal(r.report, 'stdout 回报语')
+})
+
+test('请求超时（服务端延迟响应）抛错且重试满 3 次', async () => {
+  process.env.K = 'k'
+  // 服务端延迟 1000ms 才响应：注入 50ms 超时 → 每次尝试都在响应前中止
+  const { server, base, seen } = await mockServer(async () => {
+    await new Promise((r) => { const t = setTimeout(r, 1000); t.unref() })
+    return { choices: [{ message: { content: 'late' } }] }
+  })
+  try {
+    await assert.rejects(chat({ protocol: 'openai', base_url: base, api_key_env: 'K', model: 'm' }, 's', 'u', { timeoutMs: 50, retryDelays: [0, 0] }))
+    assert.equal(seen.length, 3, '3 次尝试全部超时')
+  } finally {
+    server.close()
+  }
+})
+
+test('CLI --date 缺值 exit 2', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  const r = runCli(['--date'], dir)
+  assert.equal(r.status, 2)
+  assert.match(r.stderr, /YYYY-MM-DD/)
+  assert.equal(fs.readdirSync(dir).length, 0)
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('CLI --date 非法日历日期 exit 2', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  for (const bad of ['2026-02-30', '2026-99-99']) {
+    const r = runCli(['--date', bad], dir)
+    assert.equal(r.status, 2, '日历非法日期应 exit 2: ' + bad)
+  }
+  assert.equal(fs.readdirSync(dir).length, 0)
+  fs.rmSync(dir, { recursive: true, force: true })
 })

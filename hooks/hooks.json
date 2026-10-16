@@ -1,11 +1,14 @@
 {
-  "UserPromptSubmit": [
-    { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
-  ],
-  "Stop": [
-    { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
-  ],
-  "PostToolUse": [
-    { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
-  ]
+  "description": "自动采集 Claude Code 工作流水：UserPromptSubmit/Stop/PostToolUse 三事件各记一行到工作日志（绝对静默、绝不失败）。",
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
+    ],
+    "PostToolUse": [
+      { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
+    ]
+  }
 }

@@ -45,6 +45,8 @@ export async function main() {
   const r = await deliver(report, reportPath, cfg.deliver, {})
   for (const name of r.ok) console.log('投递成功: ' + name)
   for (const f of r.failed) console.error('投递失败: ' + f.name + ' — ' + (f.error && f.error.message))
+  // 全渠道失败要能被调用方（定时任务/脚本）感知：stderr 已输出，再以退出码 1 兜底
+  if (r.ok.length === 0 && r.failed.length > 0) process.exit(1)
 }
 
 // 直接执行时进 CLI 入口；被 import（测试 / run-daily）时不触发。

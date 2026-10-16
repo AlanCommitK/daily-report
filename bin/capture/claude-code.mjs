@@ -33,7 +33,9 @@ export async function handlePayload(d, opts = {}) {
     let kind = '', text = '', limitN = 0, tool = null
     if (event === 'UserPromptSubmit') {
       kind = 'prompt'
-      limitN = env.WORKLOG_MAX_PROMPT ? Number(env.WORKLOG_MAX_PROMPT) : 1200
+      // 非数字（含空串/未设置）回退默认：limit(text, NaN) 会产出 "…[截断]" 垃圾行
+      const n = Number(env.WORKLOG_MAX_PROMPT)
+      limitN = Number.isFinite(n) && n > 0 ? n : 1200
       text = String(d.prompt ?? '')
       if (!text) text = String(d.user_input ?? '')
       const trimmed = text.trimStart()
@@ -49,7 +51,8 @@ export async function handlePayload(d, opts = {}) {
       ensureSection(dir, today, now)
     } else if (event === 'Stop') {
       kind = 'reply'
-      limitN = env.WORKLOG_MAX_REPLY ? Number(env.WORKLOG_MAX_REPLY) : 2000
+      const n = Number(env.WORKLOG_MAX_REPLY)
+      limitN = Number.isFinite(n) && n > 0 ? n : 2000
       text = String(d.last_assistant_message ?? '')
     } else if (event === 'PostToolUse') {
       const tn = String(d.tool_name ?? '')

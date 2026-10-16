@@ -66,9 +66,10 @@ test('buildSchTasks 参数正确', () => {
   assert.equal(command, 'node "C:\\repo\\bin\\run-daily.mjs"')
 })
 
-test('buildCronLine 星期映射', () => {
-  assert.equal(buildCronLine('/repo/bin/run-daily.mjs', '18:00', [1, 2, 3, 4, 5]), '0 18 * * 1-5 node /repo/bin/run-daily.mjs')
-  assert.equal(buildCronLine('/repo/bin/run-daily.mjs', '09:30', [7]), '30 9 * * 0 node /repo/bin/run-daily.mjs')
+test('buildCronLine 星期映射（scriptPath 带引号，路径含空格不失效）', () => {
+  assert.equal(buildCronLine('/repo/bin/run-daily.mjs', '18:00', [1, 2, 3, 4, 5]), '0 18 * * 1-5 node "/repo/bin/run-daily.mjs"')
+  assert.equal(buildCronLine('/repo/bin/run-daily.mjs', '09:30', [7]), '30 9 * * 0 node "/repo/bin/run-daily.mjs"')
+  assert.equal(buildCronLine('/Users/me/My Repos/daily-report/bin/run-daily.mjs', '08:05', [1]), '5 8 * * 1 node "/Users/me/My Repos/daily-report/bin/run-daily.mjs"')
 })
 
 // 回放式 io：按序吐预设答案（耗尽后吐默认值），并记录所有交互供断言。
@@ -178,4 +179,80 @@ test('runSetup 流程：无 claude → 走 api 选 provider', async () => {
   // pick 与 ask 的交互顺序符合流程
   assert.equal(io.log.filter((l) => l.startsWith('pick: '))[0], 'pick: deepseek/openai/anthropic/qwen/glm/自定义')
   assert.equal(io.log.filter((l) => l.startsWith('pick: '))[1], 'pick: openai/anthropic')
+})
+
+// —— 输入最小校验（非法输入重问） ——
+
+function baseDeps() {
+  return {
+    which: () => true,
+    loadSettings,
+    saveSettings: registerHooks,
+    spawnSync: (cmd, args) => ({ status: cmd === 'schtasks' && args[0] === '/query' ? 1 : 0 }),
+    writeFile: (p, c) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, c, 'utf8') },
+    mkdir: (p) => fs.mkdirSync(p, { recursive: true }),
+  }
+}
+
+test('runSetup：非法时间重问后接受合法时间', async () => {
+  const { dir, env } = setupEnv()
+  const io = replayIO(['y', 'y', '', '', '', '', '', '', '25:99', '18:00', ''], [])
+  const actions = await runSetup({ io, now: NOW, env, platform: 'win32', deps: baseDeps() })
+  const sch = actions.find((a) => a.type === 'schtasks')
+  assert.equal(sch.args[sch.args.indexOf('/st') + 1], '18:00', '最终写入合法时间')
+  assert.ok(io.log.some((l) => l.startsWith('say:') && l.includes('时间格式应为')), '非法时间有提示')
+})
+
+test('runSetup：smtp 端口非法重问、空走默认', async () => {
+  const { dir, env } = setupEnv()
+  const io = replayIO(['y', 'y', '', '', '', 'smtp.example.com', 'abc', '', 'me@x.com', '', 'a@b.c', '', '', '', '', ''], [])
+  const actions = await runSetup({ io, now: NOW, env, platform: 'win32', deps: baseDeps() })
+  const cfg = actions.find((a) => a.type === 'config')
+  assert.equal(cfg.content.deliver[0].type, 'smtp')
+  assert.equal(cfg.content.deliver[0].port, 465, '非法输入后空输入回退默认 465')
+  assert.deepEqual(cfg.content.deliver[0].to, ['a@b.c'])
+  assert.ok(io.log.some((l) => l.startsWith('say:') && l.includes('端口应为')), '非法端口有提示')
+})
+
+test('runSetup：有 smtp host 无收件人重问', async () => {
+  const { dir, env } = setupEnv()
+  const io = replayIO(['y', 'y', '', '', '', 'smtp.example.com', '', 'me@x.com', '', '', '', 'a@b.c', '', '', '', ''], [])
+  const actions = await runSetup({ io, now: NOW, env, platform: 'win32', deps: baseDeps() })
+  const cfg = actions.find((a) => a.type === 'config')
+  assert.equal(cfg.content.deliver[0].type, 'smtp')
+  assert.deepEqual(cfg.content.deliver[0].to, ['a@b.c'], '空收件人重问后接受')
+  const hints = io.log.filter((l) => l.startsWith('say:') && l.includes('收件人不能为空'))
+  assert.equal(hints.length, 2, '两次空输入各提示一次')
+})
+
+test('runSetup：自定义 provider base_url/model 非空（空则重问）', async () => {
+  const { dir, env } = setupEnv()
+  const io = replayIO(['y', '', 'https://api.x.com/v1', '', 'my-model', '', '', '', '', '', '', '', ''], ['自定义', 'openai'])
+  const actions = await runSetup({ io, now: NOW, env, platform: 'win32', deps: { ...baseDeps(), which: () => false } })
+  const cfg = actions.find((a) => a.type === 'config')
+  assert.equal(cfg.content.generator.type, 'api')
+  assert.equal(cfg.content.generator.base_url, 'https://api.x.com/v1')
+  assert.equal(cfg.content.generator.model, 'my-model')
+  assert.equal(cfg.content.generator.protocol, 'openai')
+  assert.ok(io.log.some((l) => l.startsWith('say:') && l.includes('base_url 不能为空')), '空 base_url 有提示')
+  assert.ok(io.log.some((l) => l.startsWith('say:') && l.includes('模型名不能为空')), '空模型名有提示')
+})
+
+test('runSetup：hooks 无实际变更时不声称已备份（二次运行）', async () => {
+  const { dir, env } = setupEnv()
+  // 预先存在的 settings.json（含无关键）：注册前备份、无关键原样保留
+  const sp = path.join(dir, '.claude', 'settings.json')
+  fs.mkdirSync(path.dirname(sp), { recursive: true })
+  fs.writeFileSync(sp, JSON.stringify({ permissions: { allow: ['Bash'] } }, null, 2))
+  // 第一次运行注册 hooks（真实 registerHooks 写盘 + 备份）
+  const io1 = replayIO(['y', 'y', '', '', '', '', '', '', '', ''], [])
+  await runSetup({ io: io1, now: NOW, env, platform: 'win32', deps: baseDeps() })
+  assert.ok(io1.log.some((l) => l.startsWith('say:') && l.includes('已备份')), '首次注册声称备份')
+  // 第二次运行：hooks 已存在且命令相同 → 无备份写入，文案不得声称已备份
+  const io2 = replayIO(['y', 'y', '', '', '', '', '', '', '', ''], [])
+  await runSetup({ io: io2, now: NOW, env, platform: 'win32', deps: baseDeps() })
+  assert.ok(io2.log.some((l) => l.startsWith('say:') && l.includes('无变更')), '二次运行提示无变更')
+  assert.ok(!io2.log.some((l) => l.startsWith('say:') && l.includes('已备份')), '二次运行不得声称已备份')
+  const baks = fs.readdirSync(path.join(dir, '.claude')).filter((f) => f.startsWith('settings.json.bak-'))
+  assert.equal(baks.length, 1, '备份仍只有首次那一份')
 })

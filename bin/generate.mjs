@@ -55,11 +55,21 @@ export async function main() {
   const di = args.indexOf('--date')
   if (di !== -1) dayArg = args[di + 1]
   else dayArg = args.find((a) => !a.startsWith('-'))
-  const day = dayArg || today(new Date())
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+  // --date 出现但缺值：直接报错，不得静默退回今天
+  if (di !== -1 && (!dayArg || !/^\d{4}-\d{2}-\d{2}$/.test(dayArg))) {
     console.error('日期格式应为 YYYY-MM-DD')
     process.exit(2)
   }
+  // round-trip 校验（与 run-daily 一致）：日历上不存在的日期（2026-02-30 被 V8 静默
+  // 滚动、2026-99-99 为 Invalid Date）一律 exit 2，杜绝 NaN 日期流入
+  if (dayArg) {
+    const d = new Date(dayArg + 'T12:00:00')
+    if (isNaN(d.getTime()) || today(d) !== dayArg) {
+      console.error('日期格式应为 YYYY-MM-DD')
+      process.exit(2)
+    }
+  }
+  const day = dayArg || today(new Date())
   const dir = process.env.WORKLOG_DIR || path.join(process.env.USERPROFILE || process.env.HOME || '', '.worklog')
   const cfg = loadConfig(dir)
   const r = await generateReport(day, { config: cfg, worklogDir: dir, now: new Date() })

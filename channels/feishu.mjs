@@ -5,6 +5,8 @@
 
 export async function send(cfg, reportText, opts = {}) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch
+  // 与 smtp 对称：单次请求 30s 超时（opts.timeoutMs 可注入），防止网络黑洞挂死定时任务
+  const timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 30000
   const text = reportText.replace(/\r\n/g, '\n')
   const title = text.split('\n', 1)[0].trim() || '工作日报'
   for (const seg of splitByPayload(text, title)) {
@@ -16,8 +18,13 @@ export async function send(cfg, reportText, opts = {}) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
     })
     if (!res.ok) throw new Error('feishu HTTP ' + res.status)
+    // 飞书签名失败等错误以 HTTP 200 + body code 字段返回（如 19021），必须查 body 错误码
+    const data = await res.json()
+    const code = data.code ?? data.StatusCode
+    if (code !== 0) throw new Error('feishu code ' + code + (data.msg ? '：' + data.msg : ''))
   }
 }
 

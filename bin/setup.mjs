@@ -81,9 +81,14 @@ export async function runSetup(opts = {}) {
     if (isYes(ans)) {
       const cmd = 'node "' + CAPTURE_SCRIPT + '"'
       const hookCmds = { UserPromptSubmit: cmd, Stop: cmd, PostToolUse: cmd }
-      deps.saveSettings(sp, hookCmds, now)
+      const r = deps.saveSettings(sp, hookCmds, now)
       actions.push({ type: 'hooks', path: sp, hookCmds })
-      say('已注册采集 hooks（UserPromptSubmit/Stop/PostToolUse），原文件已备份为 settings.json.bak-<时间戳>。')
+      // 二次运行无实际变更（未写盘、无备份）时按实陈述，不声称"已备份"
+      if (r && r.changed === false) {
+        say('采集 hooks 已在 settings.json 中，无变更，未重复写入。')
+      } else {
+        say('已注册采集 hooks（UserPromptSubmit/Stop/PostToolUse），原文件已备份为 settings.json.bak-<时间戳>。')
+      }
     } else {
       say('跳过采集 hooks（素材将来自 git 提交/文件变更/手记）。')
     }
@@ -104,7 +109,12 @@ export async function runSetup(opts = {}) {
     const prov = await io.pick([...Object.keys(PROVIDERS), '自定义'])
     let baseUrl, protocol
     if (prov === '自定义') {
-      baseUrl = String(await io.ask('base_url（如 https://api.example.com/v1）', { default: '' })).trim()
+      // 最小校验：base_url 非空（空则重问），非法配置会在生成时直接失败
+      for (;;) {
+        baseUrl = String(await io.ask('base_url（如 https://api.example.com/v1）', { default: '' })).trim()
+        if (baseUrl) break
+        say('base_url 不能为空，请重新输入。')
+      }
       protocol = await io.pick(['openai', 'anthropic'])
     } else {
       const urls = PROVIDERS[prov]
@@ -112,7 +122,12 @@ export async function runSetup(opts = {}) {
       protocol = protocols.length === 1 ? protocols[0] : await io.pick(protocols)
       baseUrl = urls[protocol]
     }
-    const model = String(await io.ask('模型名', { default: DEFAULT_MODELS[prov] || '' })).trim()
+    let model = ''
+    for (;;) {
+      model = String(await io.ask('模型名', { default: DEFAULT_MODELS[prov] || '' })).trim()
+      if (model) break
+      say('模型名不能为空，请重新输入。')
+    }
     const apiKeyEnv = String(await io.ask('API key 环境变量名（密钥只从环境变量读取）', { default: 'DAILY_REPORT_API_KEY' })).trim()
     generator = { type: 'api', protocol, base_url: baseUrl, api_key_env: apiKeyEnv || 'DAILY_REPORT_API_KEY', model }
     say('生成器: api（' + prov + ' / ' + protocol + ' / ' + model + '）')
@@ -133,10 +148,24 @@ export async function runSetup(opts = {}) {
   if (copyTo) { deliver.push({ type: 'copy', to: copyTo }); say('渠道 copy -> ' + copyTo) }
   const smtpHost = String(await io.ask('smtp 渠道：邮件服务器地址（回车跳过）', { default: '' })).trim()
   if (smtpHost) {
-    const port = Number(String(await io.ask('smtp 端口', { default: '465' })).trim() || '465')
+    // 端口：正整数（1-65535），非法重问；空走默认 465
+    let port = 465
+    for (;;) {
+      const p = String(await io.ask('smtp 端口', { default: '465' })).trim()
+      if (!p) break
+      const n = Number(p)
+      if (Number.isInteger(n) && n > 0 && n <= 65535) { port = n; break }
+      say('smtp 端口应为 1-65535 的整数，请重新输入。')
+    }
     const user = String(await io.ask('smtp 用户名（邮箱）', { default: '' })).trim()
     const passwordEnv = String(await io.ask('smtp 密码环境变量名', { default: 'WORKLOG_SMTP_PASS' })).trim() || 'WORKLOG_SMTP_PASS'
-    const to = String(await io.ask('收件人（逗号分隔多个）', { default: '' })).split(',').map((s) => s.trim()).filter(Boolean)
+    // 收件人：配了服务器地址就至少要一个（空则重问），否则邮件发不出去
+    let to = []
+    for (;;) {
+      to = String(await io.ask('收件人（逗号分隔多个）', { default: '' })).split(',').map((s) => s.trim()).filter(Boolean)
+      if (to.length) break
+      say('已配置 smtp 服务器地址，收件人不能为空，请重新输入。')
+    }
     const from = String(await io.ask('发件人（回车同用户名）', { default: user })).trim() || user
     deliver.push({ type: 'smtp', host: smtpHost, port, user, password_env: passwordEnv, to, from })
     say('渠道 smtp -> ' + smtpHost)
@@ -148,7 +177,13 @@ export async function runSetup(opts = {}) {
   say('投递渠道共 ' + deliver.length + ' 个（不配则仅本地留档 reports/）')
 
   // 6. 计划任务：Windows schtasks / mac·Linux crontab；时间默认 18:00、工作日默认周一至五；已存在询问覆盖
-  const time = String(await io.ask('定时任务运行时间', { default: '18:00' })).trim() || '18:00'
+  // 时间最小校验：HH:MM（可省略前导零），非法重问
+  let time = ''
+  for (;;) {
+    const t = String(await io.ask('定时任务运行时间', { default: '18:00' })).trim() || '18:00'
+    if (/^([01]?\d|2[0-3]):[0-5]\d$/.test(t)) { time = t; break }
+    say('时间格式应为 HH:MM（如 18:00），请重新输入。')
+  }
   const weekdays = parseWeekdays(String(await io.ask('运行星期 1-7（1=周一，7=周日，逗号分隔）', { default: '1,2,3,4,5' }))) || [1, 2, 3, 4, 5]
   if (platform === 'win32') {
     const { args, command } = buildSchTasks(TASK_NAME, RUN_DAILY_SCRIPT, time, weekdays, now)

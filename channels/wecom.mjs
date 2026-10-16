@@ -6,12 +6,15 @@ import { splitByBlankLines } from '../bin/lib/text.mjs'
 
 export async function send(cfg, reportText, opts = {}) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch
+  // 与 smtp 对称：单次请求 30s 超时（opts.timeoutMs 可注入），防止网络黑洞挂死定时任务
+  const timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 30000
   const text = reportText.replace(/\r\n/g, '\n')
   for (const seg of splitByBlankLines(text, 4096)) {
     const res = await fetchImpl(cfg.url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ msgtype: 'markdown', markdown: { content: seg } }),
+      signal: AbortSignal.timeout(timeoutMs),
     })
     if (!res.ok) throw new Error('wecom HTTP ' + res.status)
     const data = await res.json()

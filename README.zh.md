@@ -127,6 +127,8 @@ setup 会询问是否把采集 hooks 写入 `~/.claude/settings.json`（写入�
 
 **数据存在哪？** `~/.worklog/`（可用 `WORKLOG_DIR` 覆盖）：`<日期>.jsonl` 工作流水、`notes.md` 手记、`reports/<日期>.md` 日报、`run.log` 运行日志、`config.json` 配置。目录与仓库分离，仓库 `.gitignore` 防误提交。
 
+**哪些素材会脱敏？** 仅工作流水与手记两段（写入即脱敏）；git 提交与文件变更素材段不做脱敏，与参考实现一致。
+
 **如何换 AI？** 改 `~/.worklog/config.json` 的 `generator`（预设或自定义 base_url、protocol、model、api_key_env），或重跑 `node bin/setup.mjs`。密钥放到 `api_key_env` 指定的环境变量里即可。
 
 **用 CC Switch 管理 Claude Code 供应商的用户要注意什么？** CC Switch 切换供应商会整体重写 `~/.claude/settings.json`，克隆路径注册在那里的 hooks 可能被抹掉。插件路径不受影响——hooks 在插件里，不在 settings.json。克隆路径的 hooks 若消失，重跑 `node bin/setup.mjs` 重新注册，或改走插件路径。

@@ -147,6 +147,15 @@ export async function main() {
     console.error('日期格式应为 YYYY-MM-DD')
     process.exit(2)
   }
+  // round-trip 校验（与 run-daily 一致）：日历上不存在的日期（2026-02-30 被 V8 静默
+  // 滚动、2026-99-99 为 Invalid Date）一律 exit 2，杜绝 NaN 日期流入
+  if (dayArg) {
+    const d = new Date(dayArg + 'T12:00:00')
+    if (isNaN(d.getTime()) || today(d) !== dayArg) {
+      console.error('日期格式应为 YYYY-MM-DD')
+      process.exit(2)
+    }
+  }
   const dir = process.env.WORKLOG_DIR || path.join(process.env.USERPROFILE || process.env.HOME || '', '.worklog')
   const cfg = loadConfig(dir)
   const m = buildMaterial(dayArg || today(new Date()), {
@@ -166,6 +175,6 @@ export async function main() {
     let a = path.resolve(argv1)
     let b = fileURLToPath(import.meta.url)
     if (process.platform === 'win32') { a = a.toLowerCase(); b = b.toLowerCase() }
-    if (a === b) main()
+    if (a === b) main().catch((e) => { console.error(e.message || e); process.exit(1) })
   }
 }
