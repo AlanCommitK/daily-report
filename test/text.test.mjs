@@ -7,6 +7,9 @@ test('limit 截断加标记', () => {
   assert.equal(limit('abc', 3), 'abc')
   assert.equal(limit('', 3), '')
 })
+test('limit(null) 返回空串', () => {
+  assert.equal(limit(null, 100), '')
+})
 test('splitByBlankLines 按空行切且不超字节上限', () => {
   const t = ['段落一', '', '段落二', '', '段落三'].join('\n')
   const parts = splitByBlankLines(t, 15)

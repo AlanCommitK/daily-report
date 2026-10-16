@@ -9,6 +9,9 @@ test('github token 三种前缀', () => {
   assert.equal(redact('ghp_abcdefghijklmnopqrstuvwxyz123456'), '<REDACTED:gh-token>')
   assert.equal(redact('github_pat_abcdefghijklmnopqrstuvwxyz123456'), '<REDACTED:gh-token>')
 })
+test('gho_ 前缀 github token', () => {
+  assert.equal(redact('gho_abcdefghijklmnopqrstuvwxyz123456'), '<REDACTED:gh-token>')
+})
 test('slack token', () => {
   assert.equal(redact('xoxb-1234567890-abcdefghij'), '<REDACTED:slack-token>')
 })
@@ -24,6 +27,9 @@ test('private key 块', () => {
 test('键值对通用规则', () => {
   assert.equal(redact('password: hunter2secret'), 'password=<REDACTED>')
   assert.equal(redact('API_KEY="abcdefg"'), 'API_KEY=<REDACTED>')
+})
+test('secret 键值对', () => {
+  assert.equal(redact('secret: abcdefg'), 'secret=<REDACTED>')
 })
 test('普通文本不误伤', () => {
   const t = '今天写了登录模块，修了 bug，提交了 3 次'

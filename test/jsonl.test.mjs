@@ -18,3 +18,21 @@ test('appendLine 写 UTF-8 无 BOM 且可读回', () => {
 test('readLines 文件不存在返回空数组', () => {
   assert.deepEqual(readLines(os.tmpdir(), '1999-01-01'), [])
 })
+test('readLines 遇损坏行（非 JSON）不抛异常，返回 [] 或跳过坏行', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  fs.writeFileSync(path.join(dir, '2026-10-16.jsonl'), JSON.stringify({ a: 1 }) + '\n这不是JSON\n', 'utf8')
+  let out
+  assert.doesNotThrow(() => { out = readLines(dir, '2026-10-16') })
+  assert.ok(Array.isArray(out))
+  assert.ok(out.length === 0 || (out.length === 1 && out[0].a === 1), '整文件丢弃或仅保留好行')
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+test('appendLine 到不可写位置（父路径是文件）返回 false 且不抛异常', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  const blocker = path.join(dir, 'blocker')
+  fs.writeFileSync(blocker, 'x')
+  let out
+  assert.doesNotThrow(() => { out = appendLine(blocker, '2026-10-16', { a: 1 }) })
+  assert.equal(out, false)
+  fs.rmSync(dir, { recursive: true, force: true })
+})
