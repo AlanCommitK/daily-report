@@ -1,0 +1,11 @@
+{
+  "UserPromptSubmit": [
+    { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
+  ],
+  "Stop": [
+    { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
+  ],
+  "PostToolUse": [
+    { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/capture/claude-code.mjs\"", "timeout": 10 } ] }
+  ]
+}

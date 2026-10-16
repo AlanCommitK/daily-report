@@ -1,0 +1,6 @@
+{
+  "name": "daily-report-marketplace",
+  "owner": { "name": "<owner>" },
+  "description": "daily-report 插件市场：自动采集工作流水，生成并投递中文工作日报。",
+  "plugins": [ { "name": "daily-report", "source": "./" } ]
+}
