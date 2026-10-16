@@ -19,6 +19,7 @@
 - 采集 hook 三约束：绝对静默（stdout 无输出）、绝不失败（任何异常吞掉、exit 0）、UTF-8 无 BOM
 - 密钥只从环境变量读（`api_key_env`/`password_env`），config 无明文密钥
 - 提交信息用中文（与仓库内其他项目一致），每个任务末 commit；**不 push**（用户要求时再 push）
+- 测试命令一律无参 `node --test`（带 `test/` 目录参数在 Node ≥22 下失败，已实测）；`test/fixtures/` 下不放 .js 文件（无参模式会把它们当测试执行）
 - 本计划在 `C:\Users\Yml888\WorkD\daily-report\`（即仓库根）下执行；参考实现源码在 `C:\Users\Yml888\.claude\skills\daily-report\`（capture.ps1 / run-daily.py / collect.py / deliver.py），行为以 spec 为准、细节对齐参考实现
 
 ---
@@ -47,7 +48,7 @@ git init -b main
   "private": false,
   "type": "module",
   "engines": { "node": ">=18" },
-  "scripts": { "test": "node --test test/" },
+  "scripts": { "test": "node --test" },
   "license": "MIT"
 }
 ```
@@ -92,7 +93,7 @@ MIT License，版权行 `Copyright (c) 2026 daily-report contributors`（保留�
 - [ ] **Step 6: 验证 + commit**
 
 ```bash
-node --test test/   # 期望：输出 "no tests found" 类提示，退出码 0
+node --test   # 期望：输出 "no tests found" 类提示，退出码 0
 git add -A && git commit -m "chore: 仓库骨架（package.json/.gitignore/LICENSE/config 示例）"
 ```
 
@@ -214,7 +215,7 @@ test('appendNote 加一行手记', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**（`node --test test/`，应报"找不到模块"）
+- [ ] **Step 2: 跑测试确认失败**（`node --test`，应报"找不到模块"）
 - [ ] **Step 3: 实现四个模块**
 
 `bin/lib/date.mjs` 关键实现：
@@ -290,7 +291,7 @@ export function splitByBlankLines(t, maxBytes) {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**（`node --test test/`，全绿；若 notes 插入位置测试新增，一并通过）
+- [ ] **Step 4: 跑测试确认通过**（`node --test`，全绿；若 notes 插入位置测试新增，一并通过）
 - [ ] **Step 5: commit** `git add -A && git commit -m "feat: lib 基础模块（日期/流水行/手记/文本工具）"`
 
 ---
@@ -1254,13 +1255,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '${{ matrix.node }}' }
-      - run: node --test test/
+      - run: node --test
 ```
 
 - [ ] **Step 2: 写 README.md（英文，≥40 词）与 README.zh.md（中文）**：项目简介（通用日报生成器，三层扩展点）、四种用户类型安装表（spec §2 表格）、双路径安装步骤（plugin 两条命令 / clone+setup）、生成器双协议说明与 provider 预设表、配置全键表（spec §6）、渠道配置（指向 docs/）、FAQ（含"数据存哪""如何换 AI""CC Switch 用户注意事项"）
 - [ ] **Step 3: 写 docs/adapter-guide.md**（中文，面向开发者）：采集适配器统一接口定义——输入 hook 载荷或 agent 自有事件，产出流水行对象 `{ts, kind: prompt|file|reply|note, cwd, session, turn, text, tool?}` 写入 `<WORKLOG_DIR>/<day>.jsonl`；附 claude-code.mjs 作为参考实现要点与"如何给其他 agent 接事件源"的分步示例
 - [ ] **Step 4: 写 docs/setup-guide.zh.md 与 docs/deliver-channels.zh.md**（各渠道字段表 + 企业微信/飞书机器人创建步骤 + 分片行为说明）
-- [ ] **Step 5: 本地跑 `node --test test/` 全绿 + commit** `git add -A && git commit -m "docs: README 双语/适配器指南/setup 与渠道文档 + CI"`
+- [ ] **Step 5: 本地跑 `node --test` 全绿 + commit** `git add -A && git commit -m "docs: README 双语/适配器指南/setup 与渠道文档 + CI"`
 
 ---
 
