@@ -1,0 +1,17 @@
+{
+  "_说明": "复制本文件为 config.json 放入数据目录（默认 ~/.worklog/）。所有密钥通过环境变量提供。",
+  "watch_dirs": ["C:/Users/yourname/work"],
+  "ignore": [".git", "node_modules", "__pycache__", ".venv", "dist", "build"],
+  "max_files_per_dir": 40,
+  "generator": {
+    "type": "api",
+    "protocol": "openai",
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key_env": "DAILY_REPORT_API_KEY",
+    "model": "deepseek-chat"
+  },
+  "claude_args": [],
+  "deliver": [
+    { "type": "copy", "to": "D:/日报存档" }
+  ]
+}
