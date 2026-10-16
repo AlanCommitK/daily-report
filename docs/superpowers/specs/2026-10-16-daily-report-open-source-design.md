@@ -44,10 +44,12 @@ daily-report/
 
 | 用户类型 | 采集 | 生成 | 安装 |
 |---|---|---|---|
-| Claude Code 用户（信息最全） | Claude Code 流水 hook | 自填 LLM API（或 claude CLI） | `/plugin marketplace add` + `/plugin install` + setup |
+| Claude Code 用户（信息最全） | Claude Code 流水 hook | 自填 LLM API（或 claude CLI） | `/plugin marketplace add <owner>/daily-report` + `/plugin install daily-report@daily-report-marketplace` + setup |
 | 无 Claude Code 的普通用户 | git / 文件变更 / 手记 | 自填 LLM API | `git clone` + `node bin/setup.mjs` |
 | 其他 agent 用户 | 未来写适配器接入 | 自填 LLM API | `git clone` + setup |
 | 已有 claude CLI 的老用户 | Claude Code 流水 hook | claude CLI（保留兼容） | 同第一行 |
+
+（注：`@` 后缀为 marketplace.json 的 name 字段，非 GitHub 仓库路径。）
 
 ## 3. 关键设计决策
 
@@ -90,7 +92,7 @@ config.json 的 `deliver` 为数组，每条一个渠道，可多配：
 ```
 
 - 每渠道一个模块文件（统一接口 `send(cfg, reportText)`），加渠道=加文件。
-- **长文分片**：企业微信/飞书单条上限 4096 字节，超长按空行边界切段逐条发送（每段是完整段落/列表/代码块）。分片逻辑在公共模块，两渠道共用。
+- **长文分片**：本工具对 webhook 渠道统一按 4096 字节保守分片——企业微信 markdown 官方上限即为 4096 字节；飞书官方上限更高（约 20KB），本工具同样按 4096 分片。超长按空行边界切段逐条发送（每段是完整段落/列表/代码块）。分片逻辑在公共模块，两渠道共用。
 - 失败不阻塞：某渠道失败记日志、其余继续；日报永远落本地 reports/。
 - webhook URL 含密钥：文档明确提示 config.json 不进 git。
 
