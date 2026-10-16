@@ -18,24 +18,24 @@
 
 | 用户类型 | 采集 | 生成 | 安装 |
 |---|---|---|---|
-| Claude Code 用户（信息最全） | Claude Code 流水 hook | 自填 LLM API（或 claude CLI） | `/plugin marketplace add <owner>/daily-report` → `/plugin install daily-report@daily-report-marketplace` → `node bin/setup.mjs` |
+| Claude Code 用户（信息最全） | Claude Code 流水 hook | 自填 LLM API（或 claude CLI） | `/plugin marketplace add AlanCommitK/daily-report` → `/plugin install daily-report@daily-report-marketplace` → `node bin/setup.mjs` |
 | 无 Claude Code 的普通用户 | git / 文件变更 / 手记 | 自填 LLM API | `git clone` + `node bin/setup.mjs` |
 | 其他 agent 用户 | 未来写适配器接入 | 自填 LLM API | `git clone` + setup |
 | 已有 claude CLI 的老用户 | Claude Code 流水 hook | claude CLI（保留兼容） | 同第一行 |
 
 ### 插件路径（Claude Code 用户）
 
-1. 在 Claude Code 里加市场并装插件（`<owner>` 换成本仓库的 GitHub owner）：
+1. 在 Claude Code 里加市场并装插件（`AlanCommitK` 换成本仓库的 GitHub owner）：
 
    ```
-   /plugin marketplace add <owner>/daily-report
+   /plugin marketplace add AlanCommitK/daily-report
    /plugin install daily-report@daily-report-marketplace
    ```
 
 2. 从仓库的本地副本跑一次安装向导：
 
    ```
-   git clone https://github.com/<owner>/daily-report && cd daily-report
+   git clone https://github.com/AlanCommitK/daily-report && cd daily-report
    node bin/setup.mjs
    ```
 
@@ -44,7 +44,7 @@
 ### 克隆路径（不装插件）
 
 ```
-git clone https://github.com/<owner>/daily-report && cd daily-report
+git clone https://github.com/AlanCommitK/daily-report && cd daily-report
 node bin/setup.mjs
 ```
 

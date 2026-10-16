@@ -10,7 +10,7 @@
 ## 启动
 
 ```
-git clone https://github.com/<owner>/daily-report && cd daily-report
+git clone https://github.com/AlanCommitK/daily-report && cd daily-report
 node bin/setup.mjs
 ```
 

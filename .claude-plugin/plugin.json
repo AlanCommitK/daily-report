@@ -4,7 +4,7 @@
   "description": "自动采集 Claude Code 工作流水，每天生成中文工作日报并投递到本地、邮件、企业微信或飞书。",
   "author": { "name": "daily-report contributors" },
   "license": "MIT",
-  "homepage": "https://github.com/<owner>/daily-report",
-  "repository": "https://github.com/<owner>/daily-report",
+  "homepage": "https://github.com/AlanCommitK/daily-report",
+  "repository": "https://github.com/AlanCommitK/daily-report",
   "keywords": ["daily-report", "worklog", "日报"]
 }

@@ -18,24 +18,24 @@ The core pipeline (collect → generate → deliver → schedule) does not depen
 
 | User | Capture | Generation | Install |
 |---|---|---|---|
-| Claude Code user (richest material) | Claude Code hooks | your own LLM API (or Claude CLI) | `/plugin marketplace add <owner>/daily-report` → `/plugin install daily-report@daily-report-marketplace` → `node bin/setup.mjs` |
+| Claude Code user (richest material) | Claude Code hooks | your own LLM API (or Claude CLI) | `/plugin marketplace add AlanCommitK/daily-report` → `/plugin install daily-report@daily-report-marketplace` → `node bin/setup.mjs` |
 | No Claude Code | git / file changes / manual notes | your own LLM API | `git clone` + `node bin/setup.mjs` |
 | Other-agent user | future capture adapter | your own LLM API | `git clone` + setup |
 | Existing Claude CLI user | Claude Code hooks | Claude CLI | same as first row |
 
 ### Plugin path (Claude Code users)
 
-1. In Claude Code, add the marketplace and install the plugin (replace `<owner>` with the GitHub owner of this repository):
+1. In Claude Code, add the marketplace and install the plugin (replace `AlanCommitK` with the GitHub owner of this repository):
 
    ```
-   /plugin marketplace add <owner>/daily-report
+   /plugin marketplace add AlanCommitK/daily-report
    /plugin install daily-report@daily-report-marketplace
    ```
 
 2. Run the setup wizard once, from a local copy of the repository:
 
    ```
-   git clone https://github.com/<owner>/daily-report && cd daily-report
+   git clone https://github.com/AlanCommitK/daily-report && cd daily-report
    node bin/setup.mjs
    ```
 
@@ -44,7 +44,7 @@ The core pipeline (collect → generate → deliver → schedule) does not depen
 ### Clone path (no plugin)
 
 ```
-git clone https://github.com/<owner>/daily-report && cd daily-report
+git clone https://github.com/AlanCommitK/daily-report && cd daily-report
 node bin/setup.mjs
 ```
 
