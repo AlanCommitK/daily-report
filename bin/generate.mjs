@@ -1,6 +1,7 @@
 // 生成器：把当日素材交给 LLM 产出日报 markdown。
 // api 直调（prompts/report.md 作 system、素材包作 user）；claude-cli 交给
-// /daily-report skill（stdout 即报告）。写作规则单一来源：prompts/report.md。
+// /daily-report skill（落盘 reports/<day>.md，读回为准、stdout 兜底）。
+// 写作规则单一来源：prompts/report.md。
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -31,13 +32,20 @@ export async function generateReport(day, opts = {}) {
     const report = await chat(gen, system, user, { fetchImpl: opts.fetchImpl, retryDelays: opts.retryDelays })
     return { report, generatorType: 'api' }
   }
-  // claude-cli：claude_args 透传 + 权限模式 + 可选 --model；
-  // WORKLOG_SKIP=1 避免生成过程本身被采集进流水。
+  // claude-cli：claude_args 透传 + 权限模式 + 可选 --model；cwd 设为 worklogDir 供
+  // skill 就近写 reports/。WORKLOG_SKIP=1 避免生成过程本身被采集进流水。
   const args = ['-p', '/daily-report ' + day, '--permission-mode', 'acceptEdits']
   if (gen.model) args.push('--model', gen.model)
   if (Array.isArray(cfg.claude_args)) args.push(...cfg.claude_args)
-  const report = runClaude(args, { env: { WORKLOG_SKIP: '1' } })
-  return { report, generatorType: 'claude-cli' }
+  const stdout = (opts.spawnImpl || runClaude)(args, { cwd: opts.worklogDir, env: { WORKLOG_SKIP: '1' } })
+  // 落盘由 skill 负责（reports/<day>.md），stdout 只是回报语：优先读回落盘内容，
+  // 与 run-daily 再写一遍保持幂等；文件不存在或读失败才退回 stdout。
+  try {
+    const report = fs.readFileSync(path.join(opts.worklogDir, 'reports', day + '.md'), 'utf8')
+    return { report, generatorType: 'claude-cli' }
+  } catch {
+    return { report: stdout, generatorType: 'claude-cli' }
+  }
 }
 
 // CLI：node bin/generate.mjs <day>（--date 与位置参数同义），报告输出到 stdout。

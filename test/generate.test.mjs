@@ -69,3 +69,27 @@ test('PROVIDERS 预设含 deepseek 双协议', () => {
   assert.equal(PROVIDERS.deepseek.openai, 'https://api.deepseek.com/v1')
   assert.equal(PROVIDERS.deepseek.anthropic, 'https://api.deepseek.com/anthropic')
 })
+test('claude-cli 读回 skill 落盘的报告（stdout 只是回报语）', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  fs.mkdirSync(path.join(dir, 'reports'), { recursive: true })
+  fs.writeFileSync(path.join(dir, 'reports', '2026-10-16.md'), '# 真报告')
+  const seen = {}
+  const cfg = { watch_dirs: [], ignore: [], max_files_per_dir: 40, generator: { type: 'claude-cli', model: 'sonnet' }, claude_args: [], deliver: [] }
+  const r = await generateReport('2026-10-16', {
+    config: cfg,
+    worklogDir: dir,
+    spawnImpl: (args, o) => { seen.args = args; seen.opts = o; return '已生成：/path/reports/2026-10-16.md' },
+  })
+  assert.equal(r.generatorType, 'claude-cli')
+  assert.equal(r.report, '# 真报告')
+  assert.equal(seen.opts.cwd, dir)
+  assert.equal(seen.opts.env.WORKLOG_SKIP, '1')
+  assert.ok(seen.args.join(' ').includes('/daily-report 2026-10-16'))
+})
+test('claude-cli 未落盘时退回 stdout', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dr-'))
+  const cfg = { watch_dirs: [], ignore: [], max_files_per_dir: 40, generator: { type: 'claude-cli' }, claude_args: [], deliver: [] }
+  const r = await generateReport('2026-10-16', { config: cfg, worklogDir: dir, spawnImpl: () => 'stdout 回报语' })
+  assert.equal(r.generatorType, 'claude-cli')
+  assert.equal(r.report, 'stdout 回报语')
+})
